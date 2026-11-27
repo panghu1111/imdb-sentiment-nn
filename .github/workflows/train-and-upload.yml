@@ -88,11 +88,12 @@ jobs:
           python predict.py --hf-repo {repo_id} --text "A quiet, beautifully acted film."
           ```
           '''
-          open("README.md", "w").write(card.replace("\n          ", "\n"))
+          open("model/README.md", "w").write(card.replace("\n          ", "\n"))
 
+          # Artifacts live in model/ locally but sit at the repo root on the Hub.
           for filename in ["model.pt", "vectorizer.pkl", "config.json", "metrics.json", "README.md"]:
               api.upload_file(
-                  path_or_fileobj=filename,
+                  path_or_fileobj=os.path.join("model", filename),
                   path_in_repo=filename,
                   repo_id=repo_id,
                   repo_type="model",
