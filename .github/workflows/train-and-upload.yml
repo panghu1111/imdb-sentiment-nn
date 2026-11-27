@@ -1,0 +1,111 @@
+name: Train and upload to Hugging Face
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  train-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # CPU-only torch keeps the runner fast and the image small
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Train model
+        run: python train.py --data data/imdb_top_500.csv --out-dir model
+
+      - name: Show artifacts
+        run: ls -lh model
+
+      - name: Upload to Hugging Face Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO_ID: ${{ vars.HF_REPO_ID || format('{0}/imdb-sentiment-nn', github.repository_owner) }}
+        run: |
+          python - <<'EOF'
+          import json
+          import os
+
+          from huggingface_hub import HfApi
+
+          token = os.environ["HF_TOKEN"]
+          repo_id = os.environ["HF_REPO_ID"]
+          api = HfApi()
+
+          # Create the repo once; later runs just push new commits into it.
+          api.create_repo(repo_id, repo_type="model", token=token, exist_ok=True)
+
+          metrics = json.load(open("model/metrics.json"))
+          config = json.load(open("model/config.json"))
+
+          # Model card so the Hub page explains itself.
+          card = f'''---
+          tags:
+          - sentiment-analysis
+          - text-classification
+          - tfidf
+          - mlp
+          library_name: pytorch
+          ---
+
+          # IMDb sentiment classifier (TF-IDF + MLP)
+
+          Binary sentiment classifier trained on `{config["dataset"]}`
+          ({config["n_train"]} train / {config["n_test"]} test reviews),
+          produced automatically by GitHub Actions.
+
+          ## Metrics (test split)
+
+          | metric | value |
+          |---|---|
+          | accuracy | {metrics["accuracy"]:.4f} |
+          | macro F1 | {metrics["f1_macro"]:.4f} |
+          | ROC-AUC | {metrics["roc_auc"] if metrics["roc_auc"] is not None else "n/a"} |
+
+          ## Usage
+
+          ```bash
+          python predict.py --hf-repo {repo_id} --text "A quiet, beautifully acted film."
+          ```
+          '''
+          open("README.md", "w").write(card.replace("\n          ", "\n"))
+
+          for filename in ["model.pt", "vectorizer.pkl", "config.json", "metrics.json", "README.md"]:
+              api.upload_file(
+                  path_or_fileobj=filename,
+                  path_in_repo=filename,
+                  repo_id=repo_id,
+                  repo_type="model",
+                  token=token,
+              )
+              print(f"Uploaded {filename}")
+
+          print(f"Model uploaded to https://huggingface.co/{repo_id}")
+          EOF
+
+      - name: Upload artifacts as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-artifacts
+          path: model/
+          retention-days: 14
