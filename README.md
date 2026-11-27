@@ -14,10 +14,11 @@ uploaded or trained by hand.
 
 | Metric | Value |
 |---|---|
-| Accuracy | see `model/metrics.json` produced by the latest run |
-| Macro F1 | 〃 |
-| ROC-AUC | 〃 |
+| Accuracy | 0.8200 |
+| Macro F1 | 0.8199 |
+| ROC-AUC | 0.8964 |
 
+Produced by the latest Actions run (seed 42, best epoch 31, 5.35 s of training).
 `metrics.json` also stores the full per-epoch history, the confusion matrix and a
 per-class classification report, so the exact numbers always travel with the model.
 
@@ -66,7 +67,7 @@ Inference output is JSON:
 Without any local artifacts, pointed at the published Hub repo:
 
 ```bash
-python predict.py --hf-repo <hf-username>/imdb-sentiment-nn --text "Two hours I will never get back."
+python predict.py --hf-repo wenlong-1/imdb-sentiment-nn --text "Two hours I will never get back."
 ```
 
 ## CI/CD flow
@@ -98,5 +99,5 @@ Repositories are created once and then only updated by CI; no manual Hub uploads
 
 ## Deployments
 
-- GitHub: `<github-repo-url>`
-- Hugging Face Hub: `<hf-repo-url>`
+- GitHub: https://github.com/panghu1111/imdb-sentiment-nn
+- Hugging Face Hub: https://huggingface.co/wenlong-1/imdb-sentiment-nn
